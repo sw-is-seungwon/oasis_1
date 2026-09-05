@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 반짝 전구 제어기</title>
+  <!-- 귀여운 한글 폰트 불러오기 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=Jua&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-color: #fbf7f0;          /* 포근한 크림 아이보리 */
+      --card-bg: #ffffff;
+      --pastel-blue: #b8d8d8;       /* 파스텔 소라색 */
+      --pastel-blue-dark: #97c4c4;
+      --pastel-green: #c1e1c1;      /* 파스텔 민트그린 */
+      --pastel-green-dark: #a2cfa2;
+      --pastel-pink: #f8c8dc;       /* 파스텔 베이비핑크 */
+      --pastel-pink-dark: #f0a8c4;
+      --pastel-yellow: #fff0aa;     /* 레몬 버터색 */
+      --pastel-yellow-glow: #ffe57f;
+      --font-color: #55524f;        /* 부드러운 차콜 브라운 */
+      --border-color: #ebdcd0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Jua', sans-serif; /* 메인 폰트 */
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--font-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 36px;
+      padding: 34px 28px;
+      box-shadow: 0 16px 36px rgba(214, 195, 178, 0.28);
+      border: 3px solid var(--border-color);
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      position: relative;
+    }
+
+    .title {
+      font-size: 24px;
+      color: var(--font-color);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 1. 상단 컨트롤 바 */
+    .top-bar {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      border: none;
+      outline: none;
+      padding: 12px 10px;
+      border-radius: 18px;
+      font-size: 15px;
+      font-family: 'Jua', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.06);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-search {
+      background-color: var(--pastel-blue);
+      color: #3b6060;
+    }
+    .btn-search:hover:not(:disabled) {
+      background-color: var(--pastel-blue-dark);
+    }
+
+    .btn-pair {
+      background-color: var(--pastel-green);
+      color: #3b633b;
+    }
+    .btn-pair:hover:not(:disabled) {
+      background-color: var(--pastel-green-dark);
+    }
+
+    .btn-disconnect {
+      background-color: var(--pastel-pink);
+      color: #8c4260;
+      flex: 0.85;
+    }
+    .btn-disconnect:hover:not(:disabled) {
+      background-color: var(--pastel-pink-dark);
+    }
+
+    /* 상태 표시 */
+    .status-box {
+      background: #fdfaf6;
+      border: 2px dashed #eedccf;
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #d1cbc5;
+      transition: background-color 0.3s;
+    }
+    .status-dot.connected {
+      background-color: #72d472;
+      box-shadow: 0 0 8px #72d472;
+    }
+
+    .status-text {
+      font-size: 15px;
+      color: #7d756d;
+    }
+
+    /* 2. 전구 캔버스 */
+    .canvas-container {
+      cursor: pointer;
+      padding: 10px;
+      transition: transform 0.15s ease;
+    }
+    .canvas-container:active {
+      transform: scale(0.97);
+    }
+
+    /* 3. 하단 ON / OFF 버튼 */
+    .control-actions {
+      width: 100%;
+      display: flex;
+      gap: 14px;
+    }
+
+    .btn-ctrl {
+      flex: 1;
+      padding: 15px 0;
+      font-size: 22px;
+      border-radius: 24px;
+      border: 3px solid transparent;
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-on {
+      background-color: var(--pastel-yellow);
+      color: #926f1a;
+      border-color: #f7de7b;
+    }
+    .btn-on:hover:not(:disabled) {
+      background-color: var(--pastel-yellow-glow);
+    }
+
+    .btn-off {
+      background-color: #eee9e3;
+      color: #6d665f;
+      border-color: #ddd5cc;
+    }
+    .btn-off:hover:not(:disabled) {
+      background-color: #e4ddd4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="title">💡 반짝 전구 스위치</div>
+
+    <!-- 1, 2, 3: 블루투스 제어 바 -->
+    <div class="top-bar">
+      <button id="btnSearch" class="btn btn-search">🔍 기기 찾기</button>
+      <button id="btnPair" class="btn btn-pair" disabled>🔗 페어링</button>
+      <button id="btnDisconnect" class="btn btn-disconnect" disabled>끊기</button>
+    </div>
+
+    <!-- 연결 상태 안내 -->
+    <div class="status-box">
+      <div id="statusDot" class="status-dot"></div>
+      <span id="statusLabel" class="status-text">ESP32를 찾아 연결해줘!</span>
+    </div>
+
+    <!-- 4: 전구 캔버스 -->
+    <div class="canvas-container">
+      <canvas id="bulbCanvas" width="280" height="270"></canvas>
+    </div>
+
+    <!-- 5: ON / OFF 버튼 -->
+    <div class="control-actions">
+      <button id="btnOn" class="btn btn-ctrl btn-on" disabled>켜기 (ON)</button>
+      <button id="btnOff" class="btn btn-ctrl btn-off" disabled>끄기 (OFF)</button>
+    </div>
+  </div>
+
+  <script>
+    const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+    const UART_RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+    let bluetoothDevice = null;
+    let rxCharacteristic = null;
+    let isBulbOn = false;
+
+    const btnSearch = document.getElementById("btnSearch");
+    const btnPair = document.getElementById("btnPair");
+    const btnDisconnect = document.getElementById("btnDisconnect");
+    const btnOn = document.getElementById("btnOn");
+    const btnOff = document.getElementById("btnOff");
+    const statusLabel = document.getElementById("statusLabel");
+    const statusDot = document.getElementById("statusDot");
+    const canvas = document.getElementById("bulbCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // 1. 블루투스 기기 찾기
+    btnSearch.addEventListener("click", async () => {
+      try {
+        statusLabel.textContent = "내 ESP32 찾는 중...";
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: "ESP32-LED-" }],
+          optionalServices: [UART_SERVICE_UUID]
+        });
+
+        statusLabel.textContent = `찾음: ${bluetoothDevice.name}`;
+        btnPair.disabled = false;
+        bluetoothDevice.addEventListener("gattserverdisconnected", onDisconnected);
+      } catch (err) {
+        console.error(err);
+        statusLabel.textContent = err.name === "NotFoundError" ? "선택을 취소했어!" : "블루투스 오류!";
+      }
+    });
+
+    // 2. 페어링
+    btnPair.addEventListener("click", async () => {
+      if (!bluetoothDevice) return;
+      try {
+        statusLabel.textContent = "보드와 연결하는 중...";
+        const server = await bluetoothDevice.gatt.connect();
+        const service = await server.getPrimaryService(UART_SERVICE_UUID);
+        rxCharacteristic = await service.getCharacteristic(UART_RX_CHAR_UUID);
+
+        statusLabel.textContent = `연결 완료! 반짝여봐 ✨`;
+        statusDot.classList.add("connected");
+        btnPair.disabled = true;
+        btnSearch.disabled = true;
+        btnDisconnect.disabled = false;
+        btnOn.disabled = false;
+        btnOff.disabled = false;
+      } catch (err) {
+        console.error(err);
+        statusLabel.textContent = "연결 실패! 다시 해볼까?";
+      }
+    });
+
+    // 3. 연결 해제
+    btnDisconnect.addEventListener("click", () => {
+      if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+        bluetoothDevice.gatt.disconnect();
+      }
+    });
+
+    function onDisconnected() {
+      statusLabel.textContent = "연결이 끊어졌어 😴";
+      statusDot.classList.remove("connected");
+      rxCharacteristic = null;
+      btnSearch.disabled = false;
+      btnPair.disabled = true;
+      btnDisconnect.disabled = true;
+      btnOn.disabled = true;
+      btnOff.disabled = true;
+      setBulbState(false);
+    }
+
+    // 통신 명령 송신
+    async function sendCommand(cmd) {
+      if (!rxCharacteristic) return;
+      try {
+        const encoder = new TextEncoder();
+        await rxCharacteristic.writeValue(encoder.encode(cmd));
+        setBulbState(cmd === "ON");
+      } catch (err) {
+        console.error("전송 에러:", err);
+      }
+    }
+
+    btnOn.addEventListener("click", () => sendCommand("ON"));
+    btnOff.addEventListener("click", () => sendCommand("OFF"));
+
+    // 전구 캔버스 터치 토글
+    canvas.addEventListener("click", () => {
+      if (!rxCharacteristic) return;
+      sendCommand(isBulbOn ? "OFF" : "ON");
+    });
+
+    function setBulbState(state) {
+      isBulbOn = state;
+      drawBulb();
+    }
+
+    // 4. 귀여운 파스텔 스타일 전구 그리기
+    function drawBulb() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cx = 140;
+      const cy = 120;
+
+      const outlineColor = "#443e39";           // 부드러운 초콜릿 블랙 라인
+      const onBulbColor = "#ffeb7a";            // 레몬 버터
+      const offBulbColor = "#fcfaf7";           // 뽀얀 크림 화이트
+      const rayColor = "#f9ca24";               // 따뜻한 꿀벌 노랑
+
+      // 빛 번짐 & 방사형 광선 (ON일 때)
+      if (isBulbOn) {
+        // 부드러운 빛 번짐 효과
+        const glow = ctx.createRadialGradient(cx, cy, 30, cx, cy, 110);
+        glow.addColorStop(0, "rgba(255, 235, 122, 0.45)");
+        glow.addColorStop(1, "rgba(255, 235, 122, 0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 110, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 방사 광선 라인
+        ctx.strokeStyle = rayColor;
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+
+        const angles = [-120, -90, -60, -30, 0, 30, 60, 90, 120];
+        const r1 = 80;
+        const r2 = 98;
+
+        angles.forEach(deg => {
+          const rad = (deg - 90) * (Math.PI / 180);
+          ctx.beginPath();
+          ctx.moveTo(cx + r1 * Math.cos(rad), cy + r1 * Math.sin(rad));
+          ctx.lineTo(cx + r2 * Math.cos(rad), cy + r2 * Math.sin(rad));
+          ctx.stroke();
+        });
+      }
+
+      // 전구 유리 본체
+      ctx.beginPath();
+      ctx.moveTo(cx - 20, cy + 42);
+      ctx.bezierCurveTo(cx - 30, cy + 28, cx - 60, cy + 12, cx - 60, cy - 25);
+      ctx.bezierCurveTo(cx - 60, cy - 66, cx - 33, cy - 88, cx, cy - 88);
+      ctx.bezierCurveTo(cx + 33, cy - 88, cx + 60, cy - 66, cx + 60, cy - 25);
+      ctx.bezierCurveTo(cx + 60, cy + 12, cx + 30, cy + 28, cx + 20, cy + 42);
+      ctx.closePath();
+
+      ctx.fillStyle = isBulbOn ? onBulbColor : offBulbColor;
+      ctx.fill();
+      ctx.strokeStyle = outlineColor;
+      ctx.lineWidth = 6;
+      ctx.lineJoin = "round";
+      ctx.stroke();
+
+      // 전구 하이라이트 (왼쪽 뺨 볼터치 느낌)
+      ctx.beginPath();
+      ctx.arc(cx - 16, cy - 30, 36, -2.4, -1.4, false);
+      ctx.strokeStyle = isBulbOn ? "rgba(255, 255, 255, 0.85)" : "#e3dad2";
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // 소켓 베이스 (둥글둥글한 3단)
+      const baseLines = [
+        { y: cy + 54, w: 34 },
+        { y: cy + 65, w: 28 },
+        { y: cy + 76, w: 20 }
+      ];
+
+      ctx.strokeStyle = outlineColor;
+      ctx.lineWidth = 5.5;
+      ctx.lineCap = "round";
+
+      baseLines.forEach(b => {
+        ctx.beginPath();
+        ctx.moveTo(cx - b.w / 2, b.y);
+        ctx.lineTo(cx + b.w / 2, b.y);
+        ctx.stroke();
+      });
+
+      // 소켓 꼬마 접점
+      ctx.beginPath();
+      ctx.arc(cx, cy + 84, 5, 0, Math.PI * 2);
+      ctx.fillStyle = outlineColor;
+      ctx.fill();
+    }
+
+    // 첫 실행 렌더링
+    drawBulb();
+  </script>
+</body>
+</html>
